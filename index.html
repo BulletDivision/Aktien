@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aktien-Score Rechner</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0B1E23">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Aktien-Score">
+<style>
+  :root{
+    --bg:#0B1E23;
+    --bg-alt:#0F2831;
+    --panel:#13303A;
+    --panel-raised:#173A46;
+    --line:#22505C;
+    --line-soft:#1B3F4A;
+    --ink:#F2F7F6;
+    --ink-dim:#9FC3C4;
+    --ink-faint:#6E93958f;
+    --mint:#00D097;
+    --mint-dim:#0B4A3D;
+    --bad:#FF6B5E;
+    --bad-dim:#4A1F1B;
+    --neutral:#5C7E80;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,'Inter',BlinkMacSystemFont,'Segoe UI',sans-serif;
+    padding:24px 16px 72px;
+    background-image:radial-gradient(circle at 15% 0%, var(--bg-alt), var(--bg) 55%);
+  }
+  .wrap{max-width:760px;margin:0 auto;}
+  header{margin-bottom:26px;}
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--mint);
+    margin-bottom:8px;
+    font-weight:600;
+  }
+  h1{
+    font-size:clamp(26px,5.5vw,36px);
+    margin:0 0 8px;
+    font-weight:700;
+    letter-spacing:-0.02em;
+  }
+  .sub{color:var(--ink-dim);font-size:14.5px;max-width:56ch;line-height:1.55;}
+
+  .ticker-row{
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+    margin:22px 0 16px;
+  }
+  input[type=text]{
+    font-family:inherit;
+    font-size:15px;
+    padding:12px 14px;
+    border:1.5px solid var(--line);
+    background:var(--panel);
+    color:var(--ink);
+    border-radius:10px;
+    flex:1;
+    min-width:180px;
+  }
+  input[type=text]::placeholder{color:var(--ink-faint);}
+  input[type=text]:focus{outline:none;border-color:var(--mint);}
+
+  .btn{
+    font-family:inherit;
+    font-size:13px;
+    font-weight:600;
+    padding:12px 16px;
+    border:1.5px solid var(--mint);
+    background:var(--mint);
+    color:#04241C;
+    border-radius:10px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .btn:hover{opacity:.88;}
+  .btn.ghost{background:transparent;color:var(--ink-dim);border-color:var(--line);}
+  .btn.ghost:hover{border-color:var(--ink-dim);color:var(--ink);}
+
+  .import-box{
+    background:var(--panel);
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:14px;
+    margin:0 0 20px;
+  }
+  .import-box textarea{
+    width:100%;
+    min-height:110px;
+    font-family:'SF Mono','Courier New', monospace;
+    font-size:12.5px;
+    padding:10px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    resize:vertical;
+    background:var(--bg-alt);
+    color:var(--ink);
+  }
+  .import-box textarea::placeholder{color:var(--ink-faint);}
+  .import-actions{
+    display:flex;align-items:center;gap:12px;margin-top:10px;
+  }
+  .import-status{
+    font-size:12px;
+    color:var(--ink-dim);
+  }
+  .import-status.ok{color:var(--mint);}
+  .import-status.err{color:var(--bad);}
+
+  .scoreboard{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    border-radius:14px;
+    overflow:hidden;
+    margin-bottom:24px;
+  }
+  .score-cell{
+    background:var(--panel);
+    padding:18px 12px;
+    text-align:center;
+  }
+  .score-cell .label{
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.09em;
+    color:var(--ink-dim);
+    margin-bottom:8px;
+    font-weight:600;
+  }
+  .score-cell .num{
+    font-size:clamp(24px,6vw,32px);
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+  }
+  .score-cell.sum{background:var(--mint-dim);}
+  .score-cell.sum .num{color:var(--mint);}
+
+  .status-bar{
+    display:flex;align-items:center;gap:10px;
+    padding:12px 16px;
+    border-radius:12px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    font-size:13.5px;
+    color:var(--ink-dim);
+    margin-bottom:24px;
+  }
+  .status-dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--neutral);
+    flex-shrink:0;
+  }
+  .status-bar.solid{border-color:var(--mint);background:var(--mint-dim);color:var(--ink);}
+  .status-bar.solid .status-dot{background:var(--mint);}
+  .status-bar.weak{border-color:var(--bad);background:var(--bad-dim);color:var(--ink);}
+  .status-bar.weak .status-dot{background:var(--bad);}
+
+  /* --- Accordion --- */
+  section.block{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    margin-bottom:14px;
+    overflow:hidden;
+  }
+  .block-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:16px 18px;
+    cursor:pointer;
+    user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .block-head:hover{background:var(--panel-raised);}
+  .block-head-left{display:flex;align-items:center;gap:10px;}
+  .block-head h2{
+    font-size:16.5px;margin:0;font-weight:700;
+  }
+  .block-head .count{
+    font-size:12.5px;color:var(--ink-dim);
+  }
+  .block-score-badge{
+    font-size:13px;
+    font-weight:700;
+    color:var(--mint);
+    background:var(--mint-dim);
+    padding:4px 10px;
+    border-radius:20px;
+    font-variant-numeric:tabular-nums;
+  }
+  .chevron{
+    width:18px;height:18px;
+    color:var(--ink-dim);
+    transition:transform .2s ease;
+    flex-shrink:0;
+  }
+  section.block.open .chevron{transform:rotate(180deg);}
+  .block-body{
+    max-height:0;
+    overflow:hidden;
+    transition:max-height .3s ease;
+  }
+  section.block.open .block-body{max-height:none;}
+
+  .criterion{
+    display:grid;
+    grid-template-columns:1fr auto auto;
+    gap:12px;
+    align-items:center;
+    padding:12px 18px;
+    border-top:1px solid var(--line-soft);
+  }
+  .crit-name{font-size:14px;line-height:1.35;}
+  .crit-name .hint{
+    display:block;
+    font-size:11.5px;
+    color:var(--ink-faint);
+    margin-top:2px;
+  }
+  .crit-input{
+    font-family:'SF Mono','Courier New', monospace;
+    font-size:14px;
+    width:80px;
+    padding:8px 9px;
+    border:1.3px solid var(--line);
+    background:var(--bg-alt);
+    color:var(--ink);
+    border-radius:8px;
+    text-align:right;
+  }
+  .crit-input:focus{outline:none;border-color:var(--mint);}
+  .pill{
+    font-size:10.5px;
+    font-weight:600;
+    padding:5px 9px;
+    border-radius:20px;
+    text-align:center;
+    min-width:58px;
+    background:var(--line-soft);
+    color:var(--ink-faint);
+  }
+  .pill.good{background:var(--mint-dim);color:var(--mint);}
+  .pill.bad{background:var(--bad-dim);color:var(--bad);}
+
+  .compare-wrap{overflow-x:auto;}
+  .compare-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13.5px;
+  }
+  .compare-table th{
+    text-align:left;
+    padding:10px 18px;
+    background:var(--panel-raised);
+    border-bottom:1px solid var(--line);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    font-size:10.5px;
+    color:var(--ink-dim);
+    font-weight:600;
+  }
+  .compare-table td{
+    padding:12px 18px;
+    border-top:1px solid var(--line-soft);
+    font-variant-numeric:tabular-nums;
+  }
+  .compare-table tr:hover td{background:var(--panel-raised);}
+  .compare-table .name-cell{font-weight:600;}
+  .mini-dot{
+    display:inline-block;
+    width:7px;height:7px;border-radius:50%;
+    margin-right:8px;
+    background:var(--neutral);
+  }
+  .mini-dot.good{background:var(--mint);}
+  .mini-dot.bad{background:var(--bad);}
+  .compare-table .sum-cell{font-weight:700;color:var(--mint);}
+  .compare-table .row-actions{display:flex;gap:8px;}
+  .mini-btn{
+    font-family:inherit;
+    font-size:11px;
+    font-weight:600;
+    padding:5px 10px;
+    border:1px solid var(--line);
+    background:transparent;
+    border-radius:7px;
+    cursor:pointer;
+    color:var(--ink-dim);
+  }
+  .mini-btn:hover{border-color:var(--mint);color:var(--mint);}
+  .mini-btn.danger:hover{border-color:var(--bad);color:var(--bad);}
+
+  footer{
+    margin-top:22px;
+    font-size:12px;
+    color:var(--ink-faint);
+    line-height:1.6;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+  }
+  @media (max-width:520px){
+    .criterion{grid-template-columns:1fr;gap:8px;}
+    .crit-input{width:100%;}
+    .scoreboard{grid-template-columns:1fr 1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Score-Replikat · eigene Formel, keine Blackbox</div>
+    <h1>Aktien-Score Rechner</h1>
+    <p class="sub">Levermann- und High-Growth-Investing-Kriterien selbst eintragen, Punkte automatisch. Werte bleiben lokal im Browser.</p>
+  </header>
+
+  <div class="ticker-row">
+    <input type="text" id="tickerName" placeholder="Aktienname, z. B. Coca-Cola">
+    <button class="btn ghost" id="importToggleBtn">JSON</button>
+    <button class="btn" id="saveBtn">Sichern</button>
+    <button class="btn ghost" id="resetBtn">Reset</button>
+  </div>
+
+  <div class="import-box" id="importBox" style="display:none;">
+    <textarea id="importText" placeholder='{"name":"Apple","lev":{"roe":151.9,"ebit":32.0, ...},"hgi":{"rev_g":16, ...}}'></textarea>
+    <div class="import-actions">
+      <button class="btn" id="importApplyBtn">Einfügen &amp; berechnen</button>
+      <button class="btn ghost" id="importClearBtn">Feld leeren</button>
+      <span class="import-status" id="importStatus"></span>
+    </div>
+  </div>
+
+  <div class="scoreboard scoreboard-4">
+    <div class="score-cell">
+      <div class="label">Levermann</div>
+      <div class="num" id="levScore">0/13</div>
+    </div>
+    <div class="score-cell">
+      <div class="label">HGI</div>
+      <div class="num" id="hgiScore">0/12</div>
+    </div>
+    <div class="score-cell">
+      <div class="label">Makro (max. 3)</div>
+      <div class="num" id="macroScore">0</div>
+    </div>
+    <div class="score-cell sum">
+      <div class="label">Summe (Lev+HGI)</div>
+      <div class="num" id="totalScore">0</div>
+    </div>
+  </div>
+
+  <div class="status-bar" id="statusBar">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">Werte eintragen, um die Einschätzung zu sehen</span>
+  </div>
+
+  <section class="block" id="levBlock" data-block="lev">
+    <div class="block-head">
+      <div class="block-head-left">
+        <h2>Levermann</h2>
+        <span class="count" id="levCount">0/13 erfasst</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="block-score-badge" id="levBadge">0/13</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div class="block-body">
+      <div id="levList"></div>
+    </div>
+  </section>
+
+  <section class="block" id="hgiBlock" data-block="hgi">
+    <div class="block-head">
+      <div class="block-head-left">
+        <h2>High-Growth-Investing</h2>
+        <span class="count" id="hgiCount">0/12 erfasst</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="block-score-badge" id="hgiBadge">0/12</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div class="block-body">
+      <div id="hgiList"></div>
+    </div>
+  </section>
+
+  <section class="block" id="macroBlock" data-block="macro">
+    <div class="block-head">
+      <div class="block-head-left">
+        <h2>Makro &amp; Trend</h2>
+        <span class="count" id="macroCount">0/3 erfasst</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="block-score-badge" id="macroBadge">0/3</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div class="block-body">
+      <div id="macroList"></div>
+    </div>
+  </section>
+
+  <div class="status-bar" id="macroStatusBar">
+    <span class="status-dot" id="macroStatusDot"></span>
+    <span id="macroStatusText">Makro-Werte eintragen, um das Marktumfeld zu sehen</span>
+  </div>
+
+  <section class="block" id="compareBlock" style="display:none;">
+    <div class="block-head">
+      <div class="block-head-left">
+        <h2>Vergleich</h2>
+        <span class="count" id="compareCount">0 gesichert</span>
+      </div>
+    </div>
+    <div class="compare-wrap">
+      <table class="compare-table" id="compareTable">
+        <thead>
+          <tr>
+            <th>Aktie</th>
+            <th>Lev.</th>
+            <th>HGI</th>
+            <th>Makro</th>
+            <th>Summe</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="compareBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    Punktevergabe folgt der klassischen Levermann-Logik (Susan Levermann) bzw. gängigen HGI-Kriterien (Stefan Waldhauser) — 1 Punkt je erfülltem Kriterium, bei Levermann teils auch −1. Kein Anlageberatungstool, nur eine Rechenhilfe für die eigene Recherche.
+    <br><br>
+    JSON-Feld-IDs Levermann: roe, ebit, eqr, kgv, kgv5, analyst, target, revision, growth2y, mom6, mom12, reaction, mom3.<br>
+    JSON-Feld-IDs HGI: rev_g, rev_g_fwd, rule40, gross_m, nrr, fcf_m, cash, ev_sales, insider, market_lead, tam, mgmt.<br>
+    JSON-Feld-IDs Makro: sma200 (% Kurs über/unter SMA200), oil_trend (% Ölpreis-Veränderung 30 Tage), yield10y_trend (% Veränderung US-10J-Rendite 30 Tage). Gesamtscore ab 6 gilt als solide.
+  </footer>
+</div>
+
+<script>
+// Definition: id, name, hint, unit, evaluator(value) -> {points, label}
+const levCriteria = [
+  {id:'roe', name:'Eigenkapitalrendite (EK-Rendite)', hint:'in % — Quelle: finanzen.net Kennzahlen', unit:'%',
+    eval:v=>{ if(v>20) return {p:1,l:'gut'}; if(v<10) return {p:-1,l:'schwach'}; return {p:0,l:'neutral'}; }},
+  {id:'ebit', name:'EBIT-Marge', hint:'in % — operative Marge', unit:'%',
+    eval:v=>{ if(v>12) return {p:1,l:'gut'}; if(v<6) return {p:-1,l:'schwach'}; return {p:0,l:'neutral'}; }},
+  {id:'eqr', name:'Eigenkapitalquote', hint:'in % — Bilanz-Stabilität', unit:'%',
+    eval:v=>{ if(v>25) return {p:1,l:'gut'}; if(v<15) return {p:-1,l:'schwach'}; return {p:0,l:'neutral'}; }},
+  {id:'kgv', name:'KGV aktuell', hint:'Kurs-Gewinn-Verhältnis', unit:'',
+    eval:v=>{ if(v>0 && v<12) return {p:1,l:'günstig'}; if(v>16) return {p:-1,l:'teuer'}; return {p:0,l:'neutral'}; }},
+  {id:'kgv5', name:'KGV vs. 5-Jahres-Schnitt', hint:'aktuelles KGV im Vergleich zum eigenen 5J-Ø', unit:'',
+    eval:v=>{ if(v>0 && v<12) return {p:1,l:'günstig'}; if(v>16) return {p:-1,l:'teuer'}; return {p:0,l:'neutral'}; }},
+  {id:'analyst', name:'Analystenmeinungen', hint:'Saldo Kauf- minus Verkaufsempfehlungen', unit:'',
+    eval:v=>{ if(v>0) return {p:1,l:'positiv'}; if(v<0) return {p:-1,l:'negativ'}; return {p:0,l:'neutral'}; }},
+  {id:'target', name:'Kursziel vs. aktueller Kurs', hint:'Abweichung in % (Analysten-Kursziel höher = positiv)', unit:'%',
+    eval:v=>{ if(v>10) return {p:1,l:'Potenzial'}; if(v<-10) return {p:-1,l:'überteuert'}; return {p:0,l:'neutral'}; }},
+  {id:'revision', name:'Gewinnrevisionen (4 Wochen)', hint:'Analysten-Schätzungen nach oben oder unten korrigiert?', unit:'',
+    eval:v=>{ if(v>0) return {p:1,l:'nach oben'}; if(v<0) return {p:-1,l:'nach unten'}; return {p:0,l:'neutral'}; }},
+  {id:'growth2y', name:'Gewinnwachstum (erwartet, 2 Jahre)', hint:'in % p.a.', unit:'%',
+    eval:v=>{ if(v>5) return {p:1,l:'gut'}; if(v<0) return {p:-1,l:'schwach'}; return {p:0,l:'neutral'}; }},
+  {id:'mom6', name:'Kurs-Momentum 6 Monate', hint:'Kursentwicklung in %', unit:'%',
+    eval:v=>{ if(v>5) return {p:1,l:'positiv'}; if(v<-5) return {p:-1,l:'negativ'}; return {p:0,l:'neutral'}; }},
+  {id:'mom12', name:'Kurs-Momentum 12 Monate', hint:'Kursentwicklung in %', unit:'%',
+    eval:v=>{ if(v>5) return {p:1,l:'positiv'}; if(v<-5) return {p:-1,l:'negativ'}; return {p:0,l:'neutral'}; }},
+  {id:'reaction', name:'Reaktion auf letzte Quartalszahlen', hint:'Kursbewegung am Tag danach, in %', unit:'%',
+    eval:v=>{ if(v>1) return {p:1,l:'positiv'}; if(v<-1) return {p:-1,l:'negativ'}; return {p:0,l:'neutral'}; }},
+  {id:'mom3', name:'3-Monats-Momentum (Relative Stärke)', hint:'Kursentwicklung in % ggü. Vergleichsindex', unit:'%',
+    eval:v=>{ if(v>0) return {p:1,l:'stärker'}; if(v<0) return {p:-1,l:'schwächer'}; return {p:0,l:'neutral'}; }},
+];
+
+const hgiCriteria = [
+  {id:'rev_g', name:'Umsatzwachstum aktuell', hint:'letztes Quartal/Jahr, in %', unit:'%',
+    eval:v=>{ if(v>=20) return {p:1,l:'stark'}; return {p:0,l:'schwach'}; }},
+  {id:'rev_g_fwd', name:'Umsatzwachstum erwartet', hint:'Analysten-Konsens, in %', unit:'%',
+    eval:v=>{ if(v>=15) return {p:1,l:'stark'}; return {p:0,l:'schwach'}; }},
+  {id:'rule40', name:'Rule of 40', hint:'Umsatzwachstum % + Marge % zusammen', unit:'',
+    eval:v=>{ if(v>=40) return {p:1,l:'erfüllt'}; return {p:0,l:'verfehlt'}; }},
+  {id:'gross_m', name:'Bruttomarge', hint:'in %', unit:'%',
+    eval:v=>{ if(v>=60) return {p:1,l:'stark'}; return {p:0,l:'schwach'}; }},
+  {id:'nrr', name:'Net Retention Rate', hint:'nur bei SaaS/Abo-Modell, in %', unit:'%',
+    eval:v=>{ if(v>=110) return {p:1,l:'stark'}; return {p:0,l:'schwach'}; }},
+  {id:'fcf_m', name:'Free-Cashflow-Marge', hint:'in %, negativ ist möglich', unit:'%',
+    eval:v=>{ if(v>=0) return {p:1,l:'positiv'}; return {p:0,l:'negativ'}; }},
+  {id:'cash', name:'Netto-Cash-Position', hint:'Cash minus Schulden, in Mio.', unit:'Mio.',
+    eval:v=>{ if(v>=0) return {p:1,l:'solide'}; return {p:0,l:'verschuldet'}; }},
+  {id:'ev_sales', name:'Bewertung (EV/Umsatz)', hint:'Enterprise Value / Umsatz', unit:'x',
+    eval:v=>{ if(v>0 && v<10) return {p:1,l:'moderat'}; return {p:0,l:'teuer'}; }},
+  {id:'insider', name:'Insider-Beteiligung / Kauf', hint:'Management hält oder kauft Aktien?', unit:'ja=1/nein=0',
+    eval:v=>{ if(v>=1) return {p:1,l:'ja'}; return {p:0,l:'nein'}; }},
+  {id:'market_lead', name:'Marktführerschaft / Moat', hint:'klare Wettbewerbsposition? ja=1/nein=0', unit:'ja=1/nein=0',
+    eval:v=>{ if(v>=1) return {p:1,l:'ja'}; return {p:0,l:'nein'}; }},
+  {id:'tam', name:'Adressierbarer Markt (TAM) wächst', hint:'strukturelles Marktwachstum? ja=1/nein=0', unit:'ja=1/nein=0',
+    eval:v=>{ if(v>=1) return {p:1,l:'ja'}; return {p:0,l:'nein'}; }},
+  {id:'mgmt', name:'Gründer-/Qualitäts-Management', hint:'Gründer noch aktiv, gute Kapitalallokation? ja=1/nein=0', unit:'ja=1/nein=0',
+    eval:v=>{ if(v>=1) return {p:1,l:'ja'}; return {p:0,l:'nein'}; }},
+];
+
+const macroCriteria = [
+  {id:'sma200', name:'Kurs vs. SMA 200', hint:'Abweichung Kurs zu SMA200 in % (positiv = Kurs über SMA200)', unit:'%',
+    eval:v=>{ if(v>0) return {p:1,l:'Aufwärtstrend'}; if(v<0) return {p:-1,l:'Abwärtstrend'}; return {p:0,l:'neutral'}; }},
+  {id:'oil_trend', name:'Ölpreis-Trend', hint:'Veränderung letzte 30 Tage in % (fallend = positiv fürs Marktumfeld)', unit:'%',
+    eval:v=>{ if(v<0) return {p:1,l:'fallend, günstig'}; if(v>0) return {p:-1,l:'steigend, Druck'}; return {p:0,l:'neutral'}; }},
+  {id:'yield10y_trend', name:'10J-US-Zins-Trend', hint:'Veränderung letzte 30 Tage in % (fallend = Rückenwind)', unit:'%',
+    eval:v=>{ if(v<0) return {p:1,l:'fallend, Rückenwind'}; if(v>0) return {p:-1,l:'steigend, Gegenwind'}; return {p:0,l:'neutral'}; }},
+];
+
+function buildList(containerId, criteria){
+  const el = document.getElementById(containerId);
+  criteria.forEach(c=>{
+    const row = document.createElement('div');
+    row.className='criterion';
+    row.innerHTML = `
+      <div class="crit-name">${c.name}<span class="hint">${c.hint}</span></div>
+      <input type="text" inputmode="decimal" class="crit-input" data-id="${c.id}" placeholder="${c.unit||'Wert'}">
+      <div class="pill" id="pill-${c.id}">—</div>
+    `;
+    el.appendChild(row);
+  });
+}
+buildList('levList', levCriteria);
+buildList('hgiList', hgiCriteria);
+buildList('macroList', macroCriteria);
+
+// --- Accordion toggle ---
+document.querySelectorAll('.block-head').forEach(head=>{
+  head.addEventListener('click', ()=>{
+    const section = head.closest('section.block');
+    if(section.id === 'compareBlock') return; // Vergleich hat kein Accordion
+    section.classList.toggle('open');
+    const body = section.querySelector('.block-body');
+    if(section.classList.contains('open')){
+      body.style.maxHeight = body.scrollHeight + 'px';
+    } else {
+      body.style.maxHeight = '0px';
+    }
+  });
+});
+
+function refreshOpenHeight(section){
+  if(section.classList.contains('open')){
+    const body = section.querySelector('.block-body');
+    body.style.maxHeight = body.scrollHeight + 'px';
+  }
+}
+
+function parseVal(str){
+  if(str===undefined || str===null || str.trim()==='') return null;
+  const n = parseFloat(str.replace(',','.'));
+  return isNaN(n) ? null : n;
+}
+
+let currentLevSum = 0, currentHgiSum = 0, currentMacroSum = 0;
+
+function recalc(){
+  let levSum=0, levAnswered=0;
+  levCriteria.forEach(c=>{
+    const input = document.querySelector(`input[data-id="${c.id}"]`);
+    const pill = document.getElementById(`pill-${c.id}`);
+    const val = parseVal(input.value);
+    if(val===null){ pill.textContent='—'; pill.className='pill'; return; }
+    levAnswered++;
+    const r = c.eval(val);
+    levSum += r.p;
+    pill.textContent = (r.p>0?'+1 ':r.p<0?'−1 ':'0 ') + r.l;
+    pill.className = 'pill ' + (r.p>0?'good':r.p<0?'bad':'');
+  });
+
+  let hgiSum=0, hgiAnswered=0;
+  hgiCriteria.forEach(c=>{
+    const input = document.querySelector(`input[data-id="${c.id}"]`);
+    const pill = document.getElementById(`pill-${c.id}`);
+    const val = parseVal(input.value);
+    if(val===null){ pill.textContent='—'; pill.className='pill'; return; }
+    hgiAnswered++;
+    const r = c.eval(val);
+    hgiSum += r.p;
+    pill.textContent = (r.p>0?'+1 ':'0 ') + r.l;
+    pill.className = 'pill ' + (r.p>0?'good':'bad');
+  });
+
+  let macroSum=0, macroAnswered=0;
+  macroCriteria.forEach(c=>{
+    const input = document.querySelector(`input[data-id="${c.id}"]`);
+    const pill = document.getElementById(`pill-${c.id}`);
+    const val = parseVal(input.value);
+    if(val===null){ pill.textContent='—'; pill.className='pill'; return; }
+    macroAnswered++;
+    const r = c.eval(val);
+    macroSum += r.p;
+    pill.textContent = (r.p>0?'+1 ':r.p<0?'−1 ':'0 ') + r.l;
+    pill.className = 'pill ' + (r.p>0?'good':r.p<0?'bad':'');
+  });
+
+  currentLevSum = levSum;
+  currentHgiSum = hgiSum;
+  currentMacroSum = macroSum;
+
+  document.getElementById('levScore').textContent = `${levSum}/13`;
+  document.getElementById('hgiScore').textContent = `${hgiSum}/12`;
+  document.getElementById('macroScore').textContent = `${macroSum}`;
+  document.getElementById('totalScore').textContent = levSum + hgiSum;
+  document.getElementById('levCount').textContent = `${levAnswered}/13 erfasst`;
+  document.getElementById('hgiCount').textContent = `${hgiAnswered}/12 erfasst`;
+  document.getElementById('macroCount').textContent = `${macroAnswered}/3 erfasst`;
+  document.getElementById('levBadge').textContent = `${levSum}/13`;
+  document.getElementById('hgiBadge').textContent = `${hgiSum}/12`;
+  document.getElementById('macroBadge').textContent = `${macroSum} Pkt.`;
+
+  // Unternehmensscore: NUR Levermann + HGI, Makro fließt bewusst nicht mit ein
+  const companyTotal = levSum + hgiSum;
+  const companyAnswered = levAnswered + hgiAnswered;
+  const bar = document.getElementById('statusBar');
+  const text = document.getElementById('statusText');
+  if(companyAnswered === 0){
+    bar.className = 'status-bar';
+    text.textContent = 'Werte eintragen, um die Einschätzung zu sehen';
+  } else if(companyTotal >= 6){
+    bar.className = 'status-bar solid';
+    text.textContent = `Solide — Unternehmensscore ${companyTotal} (ab 6 gilt als solide)`;
+  } else {
+    bar.className = 'status-bar weak';
+    text.textContent = `Noch nicht solide — Unternehmensscore ${companyTotal} (ab 6 gilt als solide)`;
+  }
+
+  // Makro-Umfeld separat, fließt NICHT in den Unternehmensscore ein
+  const macroBar = document.getElementById('macroStatusBar');
+  const macroText = document.getElementById('macroStatusText');
+  if(macroBar){
+    if(macroAnswered === 0){
+      macroBar.className = 'status-bar';
+      macroText.textContent = 'Makro-Werte eintragen, um das Marktumfeld zu sehen';
+    } else if(macroSum > 0){
+      macroBar.className = 'status-bar solid';
+      macroText.textContent = `Marktumfeld günstig — Makro-Score ${macroSum}/3 (rein informativ, zählt nicht zum Unternehmensscore)`;
+    } else if(macroSum < 0){
+      macroBar.className = 'status-bar weak';
+      macroText.textContent = `Marktumfeld belastet — Makro-Score ${macroSum}/3 (rein informativ, zählt nicht zum Unternehmensscore)`;
+    } else {
+      macroBar.className = 'status-bar';
+      macroText.textContent = `Marktumfeld neutral — Makro-Score ${macroSum}/3 (rein informativ, zählt nicht zum Unternehmensscore)`;
+    }
+  }
+
+  // offene Accordions in der Höhe nachziehen (Pills können umbrechen)
+  document.querySelectorAll('section.block.open').forEach(refreshOpenHeight);
+}
+
+document.addEventListener('input', (e)=>{
+  if(e.target.classList.contains('crit-input')) recalc();
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  document.querySelectorAll('.crit-input').forEach(i=>i.value='');
+  document.getElementById('tickerName').value='';
+  recalc();
+});
+
+document.getElementById('importToggleBtn').addEventListener('click', ()=>{
+  const box = document.getElementById('importBox');
+  box.style.display = box.style.display==='none' ? 'block' : 'none';
+});
+
+document.getElementById('importClearBtn').addEventListener('click', ()=>{
+  document.getElementById('importText').value = '';
+  const status = document.getElementById('importStatus');
+  status.textContent = '';
+  status.className = 'import-status';
+});
+
+document.getElementById('importApplyBtn').addEventListener('click', ()=>{
+  const status = document.getElementById('importStatus');
+  let data;
+  try{
+    data = JSON.parse(document.getElementById('importText').value);
+  }catch(e){
+    status.textContent = 'Ungültiges JSON – bitte Format prüfen.';
+    status.className = 'import-status err';
+    return;
+  }
+
+  if(data.name){
+    document.getElementById('tickerName').value = data.name;
+  }
+
+  let filled = 0;
+  if(data.lev){
+    levCriteria.forEach(c=>{
+      if(data.lev[c.id] !== undefined && data.lev[c.id] !== null){
+        const input = document.querySelector(`input[data-id="${c.id}"]`);
+        input.value = data.lev[c.id];
+        filled++;
+      }
+    });
+  }
+  if(data.hgi){
+    hgiCriteria.forEach(c=>{
+      if(data.hgi[c.id] !== undefined && data.hgi[c.id] !== null){
+        const input = document.querySelector(`input[data-id="${c.id}"]`);
+        input.value = data.hgi[c.id];
+        filled++;
+      }
+    });
+  }
+  if(data.macro){
+    macroCriteria.forEach(c=>{
+      if(data.macro[c.id] !== undefined && data.macro[c.id] !== null){
+        const input = document.querySelector(`input[data-id="${c.id}"]`);
+        input.value = data.macro[c.id];
+        filled++;
+      }
+    });
+  }
+
+  recalc();
+  status.textContent = `${filled} Werte übernommen.`;
+  status.className = 'import-status ok';
+});
+
+// --- Vergleichsliste (localStorage) ---
+const STORAGE_KEY = 'aktienScoreVergleich';
+
+function loadSaved(){
+  try{
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  }catch(e){ return []; }
+}
+
+function persistSaved(list){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+
+function collectCurrentValues(){
+  const lev = {}, hgi = {}, macro = {};
+  levCriteria.forEach(c=>{
+    const v = document.querySelector(`input[data-id="${c.id}"]`).value;
+    if(v.trim()!=='') lev[c.id] = v;
+  });
+  hgiCriteria.forEach(c=>{
+    const v = document.querySelector(`input[data-id="${c.id}"]`).value;
+    if(v.trim()!=='') hgi[c.id] = v;
+  });
+  macroCriteria.forEach(c=>{
+    const v = document.querySelector(`input[data-id="${c.id}"]`).value;
+    if(v.trim()!=='') macro[c.id] = v;
+  });
+  return { lev, hgi, macro };
+}
+
+function renderCompare(){
+  const list = loadSaved();
+  const block = document.getElementById('compareBlock');
+  const body = document.getElementById('compareBody');
+  document.getElementById('compareCount').textContent = `${list.length} gesichert`;
+
+  if(list.length === 0){
+    block.style.display = 'none';
+    return;
+  }
+  block.style.display = 'block';
+
+  const sorted = list.map((item, idx)=>({...item, _idx: idx}))
+    .sort((a,b)=> (b.levSum+b.hgiSum+(b.macroSum||0)) - (a.levSum+a.hgiSum+(a.macroSum||0)));
+
+  body.innerHTML = '';
+  sorted.forEach(item=>{
+    const sum = item.levSum + item.hgiSum + (item.macroSum || 0);
+    const dotClass = sum >= 6 ? 'good' : 'bad';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="name-cell"><span class="mini-dot ${dotClass}"></span>${item.name || '(ohne Namen)'}</td>
+      <td>${item.levSum}/13</td>
+      <td>${item.hgiSum}/12</td>
+      <td>${item.macroSum || 0}/3</td>
+      <td class="sum-cell">${sum}</td>
+      <td>
+        <div class="row-actions">
+          <button class="mini-btn" data-action="load" data-idx="${item._idx}">Laden</button>
+          <button class="mini-btn danger" data-action="delete" data-idx="${item._idx}">Löschen</button>
+        </div>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+document.getElementById('saveBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('tickerName').value.trim();
+  if(!name){
+    alert('Bitte zuerst einen Aktiennamen eintragen.');
+    return;
+  }
+  const { lev, hgi, macro } = collectCurrentValues();
+  const list = loadSaved();
+
+  const entry = { name, lev, hgi, macro, levSum: currentLevSum, hgiSum: currentHgiSum, macroSum: currentMacroSum, savedAt: new Date().toISOString() };
+
+  const existingIdx = list.findIndex(x => x.name === name);
+  if(existingIdx >= 0){
+    list[existingIdx] = entry;
+  } else {
+    list.push(entry);
+  }
+  persistSaved(list);
+  renderCompare();
+});
+
+document.getElementById('compareBody').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.mini-btn');
+  if(!btn) return;
+  const idx = parseInt(btn.dataset.idx, 10);
+  const list = loadSaved();
+  const item = list[idx];
+  if(!item) return;
+
+  if(btn.dataset.action === 'load'){
+    document.getElementById('tickerName').value = item.name;
+    document.querySelectorAll('.crit-input').forEach(i=>{
+      const id = i.dataset.id;
+      i.value = (item.lev && item.lev[id] !== undefined) ? item.lev[id]
+              : (item.hgi && item.hgi[id] !== undefined) ? item.hgi[id]
+              : (item.macro && item.macro[id] !== undefined) ? item.macro[id]
+              : '';
+    });
+    document.querySelectorAll('section.block[data-block]').forEach(section=>{
+      section.classList.add('open');
+      const body = section.querySelector('.block-body');
+      body.style.maxHeight = body.scrollHeight + 'px';
+    });
+    recalc();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  if(btn.dataset.action === 'delete'){
+    if(confirm(`"${item.name}" aus dem Vergleich entfernen?`)){
+      list.splice(idx, 1);
+      persistSaved(list);
+      renderCompare();
+    }
+  }
+});
+
+renderCompare();
+recalc();
+
+// --- PWA: Service Worker registrieren (nur wenn Datei über http(s) geladen wird, z.B. GitHub Pages) ---
+if('serviceWorker' in navigator && (location.protocol === 'https:' || location.protocol === 'http:')){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{
+      // stilles Scheitern z.B. bei file:// - App funktioniert trotzdem normal
+    });
+  });
+}
+</script>
+</body>
+</html>
